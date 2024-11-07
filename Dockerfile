@@ -2,9 +2,7 @@ FROM python:3.12
 
 WORKDIR /app
 
-COPY home.py /home.py
-
-COPY requirements.txt /requirements.txt
+COPY . .
 
 RUN pip install -r requirements.txt
 
