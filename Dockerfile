@@ -8,6 +8,10 @@ RUN pip install -r requirements.txt
 
 EXPOSE 8501
 
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
+# HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
 
-ENTRYPOINT ["streamlit", "run", "/app/home.py", "--server.port=8501", "--server.address=0.0.0.0"]
+ENTRYPOINT ["streamlit", "run", "/app/api.py", "--server.port=8501", "--server.address=0.0.0.0"]
+
+# CMD ["flask", "--app", "api", "run" "--host=0.0.0.0", "-p", "8501"]
+
+# ENTRYPOINT ["python", "api.py"]
