@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Upload Potholes</title>
+  </head>
+  <body>
+    <main>
+        <h1>Potholes Here</h1>  
+        <input type="file" id="fileInput" multiple>
+        <button onclick="uploadFiles()">Upload</button>
+    </main>
+    <script src="{{ url_for('static', filename='index.js') }}"></script>
+  </body>
+</html>
