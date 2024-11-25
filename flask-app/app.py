@@ -3,6 +3,7 @@ import boto3
 import os
 from werkzeug.utils import secure_filename
 import kaggle_to_tigris
+import glob
 
 
 app = Flask(__name__)
@@ -42,20 +43,25 @@ def generate_presigned_url():
         dataset_url = request.json.get('dataset_url')
         kaggle_api = kaggle_to_tigris.kaggle_auth()
         dataset = kaggle_to_tigris.pull_images_from_dataset(kaggle_api, dataset_url)
-        dataset_images = [f for f in os.listdir(dataset) if f.endswith('.jpg')]
+        dataset_images = glob.glob(f"{dataset}/**/*.jpg", recursive=True)
         
-        try:
+        presigned_urls = []
+        for image_path in dataset_images:
+            file_name = os.path.basename(image_path)
             presigned_post = svc.generate_presigned_post(
                 Bucket=TIGRIS_BUCKET_NAME,
-                Key=dataset_url,
-                Fields={"Content-Type": file_type},
-                Conditions=[
-                    {"Content-Type": file_type}
-                ],
+                Key=file_name,
+                Fields={"Content-Type": "image/jpeg"},
+                Conditions=[{"Content-Type": "image/jpeg"}],
             )
-            return jsonify({'data': presigned_post})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+            print(presigned_post)
+            presigned_urls.append({
+                "file_name": file_name,
+                "url": presigned_post["url"],
+                "fields": presigned_post["fields"]
+            })
+
+        return jsonify({'results': presigned_urls})
         
 
 @app.get("/list_buckets")

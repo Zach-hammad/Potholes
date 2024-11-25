@@ -36,9 +36,11 @@ async function uploadFiles() {
         }
     }
 }
+
 async function uploadDataset() {
     const kaggleUrl = document.getElementById('kaggleUrl').value;
 
+    // Request presigned URLs for the dataset
     const response = await fetch('/generate_presigned_url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -46,30 +48,40 @@ async function uploadDataset() {
             'dataset_url': kaggleUrl
         })
     });
-    const data = await response.json()
+
+    const data = await response.json();
 
     if (response.ok) {
-        
+        const presignedData = data.data; // Assuming the server returns a list of presigned URLs for all dataset files
+
+        for (let entry of presignedData) {
+            const { file_name, url, fields } = entry;
+
+            // Prepare the form data for upload
+            const formData = new FormData();
+            Object.entries(presignedData.fields).forEach(([key, value]) => {
+                formData.append(key, value);
+            });
+
+            // Fetch the file locally (if your server provides a local download mechanism for dataset files)
+            const fileResponse = await fetch(`/local-files/${file_name}`);
+            const fileBlob = await fileResponse.blob();
+            formData.append('file', fileBlob, file_name);
+
+            // Upload to S3 using the presigned URL
+            const uploadResponse = await fetch(url, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (uploadResponse.ok) {
+                console.log(`File ${file_name} uploaded`);
+            } else {
+                console.error(`Failed to upload ${file_name}`);
+            }
+        }
+    } else {
+        console.error('Failed to generate presigned URLs for the dataset');
     }
-    //     const presignedPostData = data.data;
-    //     const formData = new FormData();
-    //     Object.entries(presignedPostData.fields).forEach(([key, value]) => {
-    //         formData.append(key, value);
-    //     });
-    //     formData.append('file', file)
-
-    //     const uploadResponse = await fetch(presignedPostData.url, {
-    //         method: 'POST',
-    //         body: formData
-    //     });
-
-    //     if (uploadResponse.ok) {
-    //         console.log('File ${file.name} uploaded');
-    //     } else {
-    //         console.error('Failed');
-    //     }
-
-    // } else {
-    //     console.error('Error presigned')
-    // }
 }
+
