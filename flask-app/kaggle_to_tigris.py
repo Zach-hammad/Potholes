@@ -1,6 +1,4 @@
-import sys, os
-import kaggle
-import requests
+import os
 from kaggle.api.kaggle_api_extended import KaggleApi
 
 
