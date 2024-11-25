@@ -36,6 +36,8 @@ def generate_presigned_url():
                     {"Content-Type": file_type}
                 ],
             )
+            print(presigned_post)
+
             return jsonify({'data': presigned_post})
         except Exception as e:
             return jsonify({'error': str(e)}), 500
