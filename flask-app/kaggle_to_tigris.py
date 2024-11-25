@@ -5,7 +5,6 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 
 
 # KAGGLE_USERNAME = "bashirabdalla"
-# KAGGLE_KEY = "df8f13f032b7135796fa70c14ad73c8c"
 S3_URL = "https://fly.storage.tigris.dev/"
 TIGRIS_BUCKET_NAME = 'solitary-sun-9532'
 
