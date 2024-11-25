@@ -2,6 +2,7 @@ from flask import *
 import boto3
 import os
 from werkzeug.utils import secure_filename
+import kaggle_to_tigris
 
 
 app = Flask(__name__)
@@ -21,21 +22,41 @@ def index():
 
 @app.route('/generate_presigned_url', methods=['POST'])
 def generate_presigned_url():
-    file_name = request.json.get('file_name')
-    file_type = request.json.get('file_type')
+    if not request.json.get('dataset_url'):            
+        file_name = request.json.get('file_name')
+        file_type = request.json.get('file_type')
 
-    try:
-        presigned_post = svc.generate_presigned_post(
-            Bucket=TIGRIS_BUCKET_NAME,
-            Key=file_name,
-            Fields={"Content-Type": file_type},
-            Conditions=[
-                {"Content-Type": file_type}
-            ],
-        )
-        return jsonify({'data': presigned_post})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        try:
+            presigned_post = svc.generate_presigned_post(
+                Bucket=TIGRIS_BUCKET_NAME,
+                Key=file_name,
+                Fields={"Content-Type": file_type},
+                Conditions=[
+                    {"Content-Type": file_type}
+                ],
+            )
+            return jsonify({'data': presigned_post})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    else:
+        dataset_url = request.json.get('dataset_url')
+        kaggle_api = kaggle_to_tigris.kaggle_auth()
+        dataset = kaggle_to_tigris.pull_images_from_dataset(kaggle_api, dataset_url)
+        dataset_images = [f for f in os.listdir(dataset) if f.endswith('.jpg')]
+        
+        try:
+            presigned_post = svc.generate_presigned_post(
+                Bucket=TIGRIS_BUCKET_NAME,
+                Key=dataset_url,
+                Fields={"Content-Type": file_type},
+                Conditions=[
+                    {"Content-Type": file_type}
+                ],
+            )
+            return jsonify({'data': presigned_post})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        
 
 @app.get("/list_buckets")
 def list_buckets():
