@@ -49,7 +49,7 @@ def generate_presigned_url():
         
         presigned_urls = []
         for image_path in dataset_images:
-            file_name = os.path.basename(image_path)
+            file_name = os.path.basename(image_path) 
             presigned_post = svc.generate_presigned_post(
                 Bucket=TIGRIS_BUCKET_NAME,
                 Key=file_name,
@@ -59,6 +59,7 @@ def generate_presigned_url():
             print(presigned_post)
             presigned_urls.append({
                 "file_name": file_name,
+                "file_path": image_path.replace("/", "\\"),
                 "url": presigned_post["url"],
                 "fields": presigned_post["fields"]
             })
@@ -76,5 +77,22 @@ def list_buckets():
         app.logger.error(f"Error listing buckets: {e}")
         return jsonify({"error": "Internal server error"}), 500
     
+
+
+@app.route('/local-files/<path:file_path>', methods=['GET'])
+def serve_local_file(file_path):
+    """
+    Serve files from the local temporary directory, allowing nested paths.
+    """
+    # Construct the full path to the requested file
+    try:
+        # Check if the file exists and is within the TEMP_DIR
+        if os.path.isfile(file_path):
+            return send_file(file_path)
+        else:
+            abort(404, description="File not found or access is not allowed.")
+    except Exception as e:
+        app.logger.error(f"Error serving file {file_path}: {e}")
+        abort(500, description="Internal server error.")
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8501)
