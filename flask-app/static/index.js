@@ -52,19 +52,20 @@ async function uploadDataset() {
     const data = await response.json();
 
     if (response.ok) {
-        const presignedData = data.data; // Assuming the server returns a list of presigned URLs for all dataset files
+        const results = data.results;
 
-        for (let entry of presignedData) {
-            const { file_name, url, fields } = entry;
+        for (let entry of results) {
+            const presignedData = entry; // Assuming the server returns a list of presigned URLs for all dataset files
+            const { file_name, file_path, url, fields } = entry;
 
             // Prepare the form data for upload
             const formData = new FormData();
-            Object.entries(presignedData.fields).forEach(([key, value]) => {
+            Object.entries(entry.fields).forEach(([key, value]) => {
                 formData.append(key, value);
             });
 
             // Fetch the file locally (if your server provides a local download mechanism for dataset files)
-            const fileResponse = await fetch(`/local-files/${file_name}`);
+            const fileResponse = await fetch(`/local-files/${file_path}`);
             const fileBlob = await fileResponse.blob();
             formData.append('file', fileBlob, file_name);
 
