@@ -4,7 +4,7 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 
 # KAGGLE_USERNAME = "bashirabdalla"
 S3_URL = "https://fly.storage.tigris.dev/"
-TIGRIS_BUCKET_NAME = 'solitary-sun-9532'
+TIGRIS_BUCKET_NAME = 'pothole-images'
 
 def kaggle_auth():
     try:
@@ -17,7 +17,7 @@ def kaggle_auth():
     
 
 def pull_images_from_dataset(api: KaggleApi, url: str):
-    base_path = "./temp"
+    base_path = "temp"
     os.mkdir(base_path) if not os.path.exists(base_path) else ""
     
     dataset_name = url[url.find("datasets/") + 9:]
