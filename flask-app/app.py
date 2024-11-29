@@ -52,7 +52,7 @@ def generate_presigned_url():
             file_name = os.path.basename(image_path) 
             presigned_post = svc.generate_presigned_post(
                 Bucket=TIGRIS_BUCKET_NAME,
-                Key=file_name,
+                Key=f"{dataset}/{file_name}",
                 Fields={"Content-Type": "image/jpeg"},
                 Conditions=[{"Content-Type": "image/jpeg"}],
             )
@@ -91,7 +91,7 @@ def serve_local_file(file_path):
             if request.method != 'GET':
                 os.remove(file_path)
                 print(f"REMOVE FILE {file_path} OK")
-                return
+                return jsonify({})
             return send_file(file_path)
         else:
             abort(404, description="File not found or access is not allowed.")
