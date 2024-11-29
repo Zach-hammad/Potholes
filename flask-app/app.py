@@ -9,7 +9,7 @@ import glob
 app = Flask(__name__)
 
 S3_URL = "https://fly.storage.tigris.dev/"
-TIGRIS_BUCKET_NAME = 'solitary-sun-9532'
+TIGRIS_BUCKET_NAME = 'pothole-images'
 svc = boto3.client(
     's3',
     endpoint_url=S3_URL,
@@ -79,15 +79,19 @@ def list_buckets():
     
 
 
-@app.route('/local-files/<path:file_path>', methods=['GET'])
+@app.route('/local-files/<path:file_path>', methods=['GET', 'DELETE'])
 def serve_local_file(file_path):
     """
     Serve files from the local temporary directory, allowing nested paths.
     """
     # Construct the full path to the requested file
     try:
-        # Check if the file exists and is within the TEMP_DIR
+    # Check if the file exists and is within the TEMP_DIR
         if os.path.isfile(file_path):
+            if request.method != 'GET':
+                os.remove(file_path)
+                print(f"REMOVE FILE {file_path} OK")
+                return
             return send_file(file_path)
         else:
             abort(404, description="File not found or access is not allowed.")
