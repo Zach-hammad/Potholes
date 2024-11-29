@@ -77,6 +77,13 @@ async function uploadDataset() {
 
             if (uploadResponse.ok) {
                 console.log(`File ${file_name} uploaded`);
+                const tempClearResponse = await fetch(`/local-files/${file_path}`, {
+                    method: 'DELETE',
+                    body: formData
+                });
+                if (tempClearResponse.ok) {
+                    console.log(`file ${file_path} cleared from temp directory.`)
+                }
             } else {
                 console.error(`Failed to upload ${file_name}`);
             }
@@ -85,4 +92,3 @@ async function uploadDataset() {
         console.error('Failed to generate presigned URLs for the dataset');
     }
 }
-
