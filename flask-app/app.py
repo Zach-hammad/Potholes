@@ -46,11 +46,11 @@ def generate_presigned_url():
         dataset_url = request.json.get('dataset_url')
         kaggle_api = kaggle_to_tigris.kaggle_auth()
         dataset = kaggle_to_tigris.pull_images_from_dataset(kaggle_api, dataset_url)
-        dataset_images = glob.glob(f"{dataset}/**/*.[jp][pn]g", recursive=True)
+        dataset_files = glob.glob(f"{dataset}/**/*.*", recursive=True)
         
         presigned_urls = []
-        for image_path in dataset_images:
-            file_name = os.path.basename(image_path) 
+        for file_path in dataset_files:
+            file_name = os.path.basename(file_path) 
             content_type = file_type = mimetypes.guess_type(file_name)[0] 
             presigned_post = svc.generate_presigned_post(
                 Bucket=TIGRIS_BUCKET_NAME,
@@ -61,7 +61,7 @@ def generate_presigned_url():
             print(presigned_post)
             presigned_urls.append({
                 "file_name": file_name,
-                "file_path": image_path.replace("/", "\\"),
+                "file_path": file_path.replace("/", "\\"),
                 "url": presigned_post["url"],
                 "fields": presigned_post["fields"]
             })
