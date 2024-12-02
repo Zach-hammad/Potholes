@@ -30,3 +30,28 @@ data_yml_path = '/kaggle/input/potholes-detection-yolov8/data.yaml'
 results_path = '/kaggle/working/runs/detect/'
 weights = 'yolov8s.pt' # https://docs.ultralytics.com/models/
 batch_size = 64
+def train_yolo_with_multi_gpu(
+    data_path: str = data_yml_path,
+    epochs: int = 150,
+    batch_size: int = batch_size,
+    weights: str = weights,
+    imgsz: int = 640,
+    devices: str = '0,1', 
+    **kwargs
+) -> None:
+    
+   
+    model = YOLO(weights)
+    
+    
+    model.train(
+        data=data_path,
+        epochs=epochs,
+        batch=batch_size,
+        imgsz=imgsz,
+        device=devices,  
+        **kwargs
+    )
+
+# Jalankan pelatihan
+train_yolo_with_multi_gpu()
