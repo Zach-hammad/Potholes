@@ -72,13 +72,31 @@ def generate_presigned_url():
 @app.get("/list_buckets")
 def list_buckets():
     try:
+        # List all buckets
         buckets = svc.list_buckets()
         bucket_names = [bucket["Name"] for bucket in buckets.get("Buckets", [])]
-        return jsonify({"buckets": bucket_names})
+
+        # Dictionary to hold objects in each bucket
+        buckets_with_objects = {}
+
+        # Iterate over each bucket and list objects
+        for bucket_name in bucket_names:
+            try:
+                response = svc.list_objects_v2(Bucket=bucket_name)
+                # Check if the bucket contains any objects
+                if 'Contents' in response:
+                    objects = [obj['Key'] for obj in response['Contents']]
+                else:
+                    objects = []
+                buckets_with_objects[bucket_name] = objects
+            except Exception as e:
+                app.logger.error(f"Error listing objects in bucket {bucket_name}: {e}")
+                buckets_with_objects[bucket_name] = f"Error: {str(e)}"
+
+        return jsonify({"buckets": buckets_with_objects})
     except Exception as e:
         app.logger.error(f"Error listing buckets: {e}")
         return jsonify({"error": "Internal server error"}), 500
-    
 
 
 @app.route('/local-files/<path:file_path>', methods=['GET', 'DELETE'])

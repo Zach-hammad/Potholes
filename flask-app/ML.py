@@ -8,9 +8,9 @@ import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 # For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
 
 import os
-for dirname, _, filenames in os.walk('/kaggle/input'):
+for dirname, _, filenames in os.walk("C:/Users/zac65/Downloads/archive"):
     for filename in filenames:
-#         print(os.path.join(dirname, filename))
+        print(os.path.join(dirname, filename))
         break
 
 import shutil
@@ -26,8 +26,8 @@ print("Is CUDA available:", torch.cuda.is_available())
 print("Number of GPUs:", torch.cuda.device_count())
 print("CUDA Device Name:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "No GPU")
 
-data_yml_path = '/kaggle/input/potholes-detection-yolov8/data.yaml'
-results_path = '/kaggle/working/runs/detect/'
+data_yml_path = 'C:/Users/zac65/Downloads/archive/data.yaml'
+results_path = 'C:/Users/zac65/Downloads/archive/results/'
 weights = 'yolov8s.pt' # https://docs.ultralytics.com/models/
 batch_size = 64
 def train_yolo_with_multi_gpu(
@@ -36,7 +36,7 @@ def train_yolo_with_multi_gpu(
     batch_size: int = batch_size,
     weights: str = weights,
     imgsz: int = 640,
-    devices: str = '0,1', 
+    devices: str = 'cpu', 
     **kwargs
 ) -> None:
     
