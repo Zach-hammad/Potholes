@@ -36,7 +36,7 @@ def train_yolo_with_multi_gpu(
     batch_size: int = batch_size,
     weights: str = weights,
     imgsz: int = 640,
-    devices: str = 'cpu', 
+    devices: str = '0', 
     **kwargs
 ) -> None:
     
