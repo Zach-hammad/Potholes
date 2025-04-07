@@ -1,4 +1,7 @@
 flask-app/temp/*
 kaggle.json
 */**/*.pyc
-/runs
+/runs/
+*/**/*.avi
+*/**/args.yaml
+/runs/train
