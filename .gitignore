@@ -1,3 +1,4 @@
 flask-app/temp/*
 kaggle.json
 */**/*.pyc
+/runs
