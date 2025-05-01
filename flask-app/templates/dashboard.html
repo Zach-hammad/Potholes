@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Pothole Dashboard</title>
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet/dist/leaflet.css"
+  />
+  <!-- MarkerCluster CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"
+  />
+  <!-- Your app CSS -->
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/style.css') }}"
+  />
+
+  <style>
+    html, body { margin:0; padding:0; height:100%; font-family:Arial,sans-serif; }
+    /* Sidebar */
+    #sidebar {
+      position:absolute; top:0; left:0;
+      width:240px; height:100%;
+      background:#fff; padding:1rem;
+      box-shadow:2px 0 5px rgba(0,0,0,0.1);
+      overflow-y:auto; z-index:1000;
+    }
+    #sidebar h3 { margin-top:0; }
+    #sidebar label { display:block; margin-top:1rem; font-weight:bold; }
+    #sidebar select,
+    #sidebar input[type="date"],
+    #sidebar input[type="range"],
+    #sidebar button {
+      width:100%; margin-top:0.25rem; box-sizing:border-box;
+    }
+    #sidebar select[multiple] { height:80px; }
+    #sidebar button { padding:0.5rem; cursor:pointer; }
+
+    /* Back-link */
+    #back-link {
+      position:absolute; top:1rem; left:250px;
+      z-index:1001;
+      text-decoration:none; color:#333;
+      background:rgba(255,255,255,0.9);
+      padding:0.25rem 0.5rem;
+      border-radius:4px;
+      box-shadow:1px 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* Full map pane */
+    #map {
+      position:absolute;
+      top:0; left:240px; right:0; bottom:0;
+    }
+  </style>
+</head>
+<body>
+
+  <a id="back-link" href="{{ url_for('index') }}">← Upload Images</a>
+
+  <div id="sidebar">
+    <h3>Filters & Export</h3>
+
+    <label for="severity">Severity:</label>
+    <select id="severity" multiple>
+      <option value="1">1 – Minor</option>
+      <option value="2">2 – Low</option>
+      <option value="3">3 – Medium</option>
+      <option value="4">4 – High</option>
+      <option value="5">5 – Critical</option>
+    </select>
+
+    <label for="start_date">Start Date:</label>
+    <input type="date" id="start_date"/>
+
+    <label for="end_date">End Date:</label>
+    <input type="date" id="end_date"/>
+
+    <label for="confidence">Confidence ≥ <span id="conf_val">0.00</span>:</label>
+    <input type="range" id="confidence" min="0" max="1" step="0.01" value="0"/>
+
+    <button id="export-csv">Export CSV</button>
+    <button id="export-geojson">Export GeoJSON</button>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- Leaflet & plugins -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+  <!-- Dashboard logic -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
