@@ -1,7 +1,8 @@
 // static/js/app.js
+
 document.addEventListener('DOMContentLoaded', () => {
-    // 1) Initialize map with CartoDB Positron basemap
-    const map = L.map('map').setView([39.9526, -75.1652], 13);
+    // 1) Initialize map without default zoom controls
+    const map = L.map('map', { zoomControl: false }).setView([39.9526, -75.1652], 13);
     L.tileLayer(
       'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
       {
@@ -11,47 +12,18 @@ document.addEventListener('DOMContentLoaded', () => {
         maxZoom: 19
       }
     ).addTo(map);
-  
-    // 2) Add scale control (metric only)
     L.control.scale({ imperial: false }).addTo(map);
   
-    // 3) MarkerCluster group
-    const markers = L.markerClusterGroup();
-    map.addLayer(markers);
+    // 2) Marker cluster
+    const markers = L.markerClusterGroup().addTo(map);
   
-    // 4) DOM elements
-    const severityEl   = document.getElementById('severity');
-    const startEl      = document.getElementById('start_date');
-    const endEl        = document.getElementById('end_date');
-    const confEl       = document.getElementById('confidence');
-    const confValEl    = document.getElementById('conf_val');
-    const exportCsvBtn = document.getElementById('export-csv');
-    const exportGeoBtn = document.getElementById('export-geojson');
-  
-    // 5) Build query params from filters
-    function buildParams() {
-      const params = new URLSearchParams();
-      Array.from(severityEl.selectedOptions)
-        .map(o => o.value)
-        .forEach(v => params.append('severity', v));
-  
-      if (startEl.value) params.set('start_date', startEl.value);
-      if (endEl.value)   params.set('end_date', endEl.value);
-  
-      params.set('conf_min', confEl.value);
-      confValEl.textContent = parseFloat(confEl.value).toFixed(2);
-      return params.toString();
-    }
-  
-    // 6) Severity → color helper
+    // 3) Helpers
     function severityColor(s) {
       return s >= 4 ? '#e31a1c'
            : s >= 3 ? '#fd8d3c'
            : s >= 2 ? '#fecc5c'
            :          '#31a354';
     }
-  
-    // 7) Create custom divIcon based on severity
     function makeIcon(sev) {
       const color = severityColor(sev);
       return L.divIcon({
@@ -68,64 +40,130 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   
-    // 8) Fetch data and render markers
-    async function fetchAndRender() {
-      const qs = buildParams();
-      try {
-        const res = await fetch('/api/potholes?' + qs);
-        const data = await res.json();
-        console.log('Potholes:', data);
+    // 4) Control variables
+    let sevChecks, startEl, endEl, confEl, confValEl, exportCsvBtn, exportGeoBtn, errDiv, zoomInBtn, zoomOutBtn;
   
-        markers.clearLayers();
-        data.forEach(p => {
-          const m = L.marker([p.lat, p.lng], { icon: makeIcon(p.severity) })
-            .bindPopup(`
-              <strong>ID:</strong> ${p.id}<br>
-              <strong>Date:</strong> ${p.date}<br>
-              <strong>Severity:</strong> ${p.severity}<br>
-              <strong>Confidence:</strong> ${p.confidence.toFixed(2)}
-            `);
-          markers.addLayer(m);
-        });
-  
-        if (!data.length) console.warn('No potholes returned.');
-      } catch (err) {
-        console.error('Error fetching potholes:', err);
-      }
-    }
-  
-    // 9) Legend control
-    const legend = L.control({ position: 'bottomright' });
+    // 5) Legend panel with embedded controls + custom zoom + home link
+    const legend = L.control({ position: 'topleft' });
     legend.onAdd = () => {
-      const div = L.DomUtil.create('div', 'legend');
-      const grades = [1,2,3,4,5];
-      div.innerHTML = '<strong>Severity</strong><br>';
-      grades.forEach(g => {
-        div.innerHTML +=
-          `<i style="
-            background:${severityColor(g)};
-            width:12px; height:12px;
-            display:inline-block;
-            margin-right:4px;
-            border:1px solid #fff;
-          "></i> ${g}<br>`;
+      const w = L.DomUtil.create('div', 'leaflet-control legend tb-panel');
+      w.innerHTML = `
+        <div class="panel-header">
+          <a href="/" class="home-link">Home</a>
+          <h3>Filters & Export</h3>
+        </div>
+        <div class="tb-body">
+          <div class="filter-group">
+            <label>Severity</label>
+            <div class="severity-options">
+              <label><input type="checkbox" value="1"> 1 – Minor</label>
+              <label><input type="checkbox" value="2"> 2 – Low</label>
+              <label><input type="checkbox" value="3"> 3 – Medium</label>
+              <label><input type="checkbox" value="4"> 4 – High</label>
+              <label><input type="checkbox" value="5"> 5 – Critical</label>
+            </div>
+          </div>
+          <div class="filter-group">
+            <label>Start Date</label>
+            <input type="date" id="start_date"/>
+          </div>
+          <div class="filter-group">
+            <label>End Date</label>
+            <input type="date" id="end_date"/>
+          </div>
+          <div class="filter-group">
+            <label>Confidence ≥ <span id="conf_val">0.00</span></label>
+            <input type="number" id="confidence" min="0" max="1" step="0.01" value="0.00"/>
+          </div>
+          <div id="conf-error" class="conf-error"></div>
+          <div class="zoom-group">
+            <label>Zoom</label>
+            <button id="zoom-in">+</button>
+            <button id="zoom-out">−</button>
+          </div>
+          <button class="export-btn" id="export-csv">Export CSV</button>
+          <button class="export-btn" id="export-geojson">Export GeoJSON</button>
+        </div>
+      `;
+      L.DomEvent.disableClickPropagation(w);
+  
+      // grab controls
+      sevChecks     = w.querySelectorAll('.severity-options input');
+      startEl       = w.querySelector('#start_date');
+      endEl         = w.querySelector('#end_date');
+      confEl        = w.querySelector('#confidence');
+      confValEl     = w.querySelector('#conf_val');
+      errDiv        = w.querySelector('#conf-error');
+      zoomInBtn     = w.querySelector('#zoom-in');
+      zoomOutBtn    = w.querySelector('#zoom-out');
+      exportCsvBtn  = w.querySelector('#export-csv');
+      exportGeoBtn  = w.querySelector('#export-geojson');
+  
+      // attach handlers
+      sevChecks.forEach(chk => chk.addEventListener('change', fetchAndRender));
+      startEl.addEventListener('change', fetchAndRender);
+      endEl.addEventListener('change', fetchAndRender);
+      confEl.addEventListener('change', () => {
+        let v = parseFloat(confEl.value);
+        if (isNaN(v) || v < 0 || v > 1) {
+          errDiv.textContent = '⚠️ Confidence must be 0.00–1.00';
+          errDiv.style.display = 'block';
+          v = Math.min(Math.max(v||0,0),1);
+          confEl.value = v.toFixed(2);
+        } else {
+          errDiv.style.display = 'none';
+        }
+        confValEl.textContent = parseFloat(confEl.value).toFixed(2);
+        fetchAndRender();
       });
-      return div;
+  
+      zoomInBtn.addEventListener('click', () => map.zoomIn());
+      zoomOutBtn.addEventListener('click', () => map.zoomOut());
+  
+      exportCsvBtn.addEventListener('click', () => {
+        window.location = '/export?format=csv&' + buildParams();
+      });
+      exportGeoBtn.addEventListener('click', () => {
+        window.location = '/export?format=geojson&' + buildParams();
+      });
+  
+      return w;
     };
     legend.addTo(map);
   
-    // 10) Wire up filters & exports
-    [severityEl, startEl, endEl, confEl]
-      .forEach(el => el.addEventListener('change', fetchAndRender));
+    // 6) Build params
+    function buildParams() {
+      const params = new URLSearchParams();
+      sevChecks.forEach(chk => { if (chk.checked) params.append('severity', chk.value); });
+      if (startEl.value) params.set('start_date', startEl.value);
+      if (endEl.value)   params.set('end_date', endEl.value);
+      const c = parseFloat(confEl.value)||0;
+      params.set('conf_min', c.toFixed(2));
+      return params.toString();
+    }
   
-    exportCsvBtn.addEventListener('click', () => {
-      window.location = '/export?format=csv&' + buildParams();
-    });
-    exportGeoBtn.addEventListener('click', () => {
-      window.location = '/export?format=geojson&' + buildParams();
-    });
+    // 7) Fetch & render
+    async function fetchAndRender() {
+      try {
+        const res = await fetch('/api/potholes?' + buildParams());
+        const data = await res.json();
+        markers.clearLayers();
+        data.forEach(p => {
+          L.marker([p.lat, p.lng], { icon: makeIcon(p.severity) })
+            .bindPopup(
+              `<strong>ID:</strong> ${p.id}<br>` +
+              `<strong>Date:</strong> ${p.date}<br>` +
+              `<strong>Severity:</strong> ${p.severity}<br>` +
+              `<strong>Confidence:</strong> ${p.confidence.toFixed(2)}`
+            )
+            .addTo(markers);
+        });
+      } catch (err) {
+        console.error('Error:', err);
+      }
+    }
   
-    // initial load
+    // 8) Initial load
     fetchAndRender();
   });
   

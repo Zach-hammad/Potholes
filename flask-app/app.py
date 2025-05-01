@@ -130,13 +130,13 @@ def export_data():
     writer = csv.DictWriter(si, fieldnames=data[0].keys() if data else [])
     writer.writeheader()
     writer.writerows(data)
+
     return send_file(
         io.BytesIO(si.getvalue().encode()),
         mimetype='text/csv',
         as_attachment=True,
-        attachment_filename='potholes.csv'
+        download_name='potholes.csv'
     )
-
 
 @app.route('/generate_presigned_url', methods=['POST'])
 def generate_presigned_url():
