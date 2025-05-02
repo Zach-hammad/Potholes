@@ -150,12 +150,18 @@ document.addEventListener('DOMContentLoaded', () => {
         markers.clearLayers();
         data.forEach(p => {
           L.marker([p.lat, p.lng], { icon: makeIcon(p.severity) })
-            .bindPopup(
-              `<strong>ID:</strong> ${p.id}<br>` +
-              `<strong>Date:</strong> ${p.date}<br>` +
-              `<strong>Severity:</strong> ${p.severity}<br>` +
-              `<strong>Confidence:</strong> ${p.confidence.toFixed(2)}`
-            )
+            .bindPopup(`
+              ${p.image_url
+                ? `<img src="${p.image_url}" style="max-width:200px; display:block; margin-top:5px;" alt="Pothole image">`
+                : `<em>No image available</em>`
+              }
+              <strong>ID:</strong> ${p.id}<br>
+              <strong>Date:</strong> ${p.date}<br>
+              <strong>Severity:</strong> ${p.severity}<br>
+              <strong>Confidence:</strong> ${p.confidence.toFixed(2)}<br>
+              
+            `)
+
             .addTo(markers);
         });
       } catch (err) {

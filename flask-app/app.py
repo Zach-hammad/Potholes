@@ -3,19 +3,19 @@
 from flask import Flask, render_template, request, jsonify, send_file, abort
 import boto3
 import os
-import glob
-import mimetypes
 import io
 import csv
 import json
 import random
 import datetime
 from werkzeug.utils import secure_filename
+import glob
+import mimetypes
 import kaggle_to_tigris
 
 app = Flask(__name__)
 
-# --- Tigris S3 Configuration ---
+# --- Tigris S3 Configuration (S3-compatible) ---
 S3_URL = "https://fly.storage.tigris.dev/"
 TIGRIS_BUCKET_NAME = 'pothole-images'
 svc = boto3.client(
@@ -25,20 +25,59 @@ svc = boto3.client(
     aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
 )
 
-# --- Dummy Pothole Data Generation ---
+# --- Helper: fetch real data from Tigris via boto3 S3 API ---
+# --- Helper: fetch real data from S3, capturing the folder & base name ---
+def fetch_pothole_data_from_s3(bucket_name: str):
+    paginator = svc.get_paginator('list_objects_v2')
+    page_iterator = paginator.paginate(Bucket=bucket_name)
+
+    data = []
+    for page in page_iterator:
+        for obj in page.get('Contents', []):
+            key = obj['Key']
+            if not key.lower().endswith('.json'):
+                continue
+
+            try:
+                resp    = svc.get_object(Bucket=bucket_name, Key=key)
+                sidecar = json.loads(resp['Body'].read())
+            except Exception as e:
+                app.logger.warning(f"Skipping {key}: {e}")
+                continue
+
+            ts  = sidecar.get("timestamp")
+            gps = sidecar.get("gps", {})
+            lat = gps.get("lat")
+            lon = gps.get("lon")
+            if ts is None or lat is None or lon is None:
+                app.logger.warning(f"Skipping incomplete sidecar {key}")
+                continue
+
+            # split off the date-folder and base filename
+            prefix, filename = key.rsplit('/', 1)            # e.g. "2025-5-01", "pothole_1746148157.json"
+            base             = filename.rsplit('.', 1)[0]    # e.g. "pothole_1746148157"
+
+            data.append({
+                "id":          ts,                             # timestamp
+                "lat":         lat,
+                "lng":         lon,
+                "severity" : random.randint(1, 5),
+                "confidence" : round(random.uniform(0.5, 1.0), 2),
+                "date":        datetime.date.fromtimestamp(ts).isoformat(),
+                "description": sidecar.get("description", ""),
+                "s3_prefix":   prefix,
+                "s3_base":     base
+            })
+
+    return data
+
+# --- Dummy Pothole Data Generation (fallback) ---
 def generate_dummy_potholes(n=100):
     base_lat, base_lng = 39.9526, -75.1652
     descriptions = [
-        "Crack along curb",
-        "Large crater",
-        "Hairline fracture",
-        "Pothole near manhole",
-        "Edge collapse",
-        "Multiple small holes",
-        "Sunken asphalt",
-        "Long depression",
-        "Water pooling",
-        "Severe washout"
+        "Crack along curb", "Large crater", "Hairline fracture",
+        "Pothole near manhole", "Edge collapse", "Multiple small holes",
+        "Sunken asphalt", "Long depression", "Water pooling", "Severe washout"
     ]
     today = datetime.date.today()
     data = []
@@ -60,8 +99,16 @@ def generate_dummy_potholes(n=100):
         })
     return data
 
-POH_DATA = generate_dummy_potholes(100)
-
+# --- Load your pothole data at startup ---
+try:
+    POH_DATA = fetch_pothole_data_from_s3(TIGRIS_BUCKET_NAME)
+    app.logger.info(f"Loaded {len(POH_DATA)} records from S3 bucket '{TIGRIS_BUCKET_NAME}'")
+    if not POH_DATA:
+        raise RuntimeError("No JSON sidecars found in the bucket")
+except Exception as e:
+    app.logger.error(f"Error fetching from S3: {e}")
+    POH_DATA = generate_dummy_potholes(100)
+    app.logger.info("Falling back to dummy data")
 
 # --- Helper to filter potholes based on query args ---
 def filter_potholes(args):
@@ -78,11 +125,10 @@ def filter_potholes(args):
             continue
         if end and p['date'] > end:
             continue
-        if p['confidence'] < conf_min:
+        if (p.get('confidence') or 0) < conf_min:
             continue
         results.append(p)
     return results
-
 
 # --- Routes ---
 
@@ -90,17 +136,30 @@ def filter_potholes(args):
 def index():
     return render_template('index.html')
 
-
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
     return render_template('dashboard.html')
 
-
 @app.route('/api/potholes', methods=['GET'])
 def get_potholes():
     results = filter_potholes(request.args)
-    return jsonify(results)
 
+    for p in results:
+        # your bucket has: <date-folder>/<base>.json  &  <base>_best.jpg
+        key = f"{p['s3_prefix']}/{p['s3_base']}_best.jpg"
+        try:
+            url = svc.generate_presigned_url(
+                ClientMethod='get_object',
+                Params={'Bucket': TIGRIS_BUCKET_NAME, 'Key': key},
+                ExpiresIn=3600
+            )
+        except Exception as e:
+            app.logger.warning(f"Couldn’t presign {key}: {e}")
+            url = None
+
+        p['image_url'] = url
+
+    return jsonify(results)
 
 @app.route('/export', methods=['GET'])
 def export_data():
@@ -125,7 +184,6 @@ def export_data():
         }
         return jsonify(gj)
 
-    # default: CSV
     si = io.StringIO()
     writer = csv.DictWriter(si, fieldnames=data[0].keys() if data else [])
     writer.writeheader()
@@ -182,7 +240,6 @@ def generate_presigned_url():
 
     return jsonify({'results': presigned_urls})
 
-
 @app.route('/list_buckets', methods=['GET'])
 def list_buckets():
     try:
@@ -197,7 +254,6 @@ def list_buckets():
         app.logger.error(f"Error listing buckets: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-
 @app.route('/local-files/<path:file_path>', methods=['GET', 'DELETE'])
 def serve_local_file(file_path):
     try:
@@ -211,7 +267,6 @@ def serve_local_file(file_path):
     except Exception as e:
         app.logger.error(f"Error serving file {file_path}: {e}")
         abort(500, description="Internal server error.")
-
 
 # --- Run the app ---
 if __name__ == "__main__":
