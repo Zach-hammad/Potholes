@@ -23,14 +23,14 @@ from tqdm import tqdm
 
 
 
-data_yml_path = r"C:\Users\Bash\OneDrive - Drexel University\Potholes\Archive\severityRated\data.yaml"
-results_path = r"C:\Users\Bash\OneDrive - Drexel University\Potholes\Archive\severityRated\results"
+data_yml_path = r"E:\Downloads\Archive\data.yaml"
+results_path = r"E:\Downloads\Archive\results"
 weights = 'yolo11n.pt' # https://docs.ultralytics.com/models/
 batch_size = 64
 def train_yolo_with_multi_gpu(
     data_path: str = data_yml_path,
     # data_path: str = 'E:\Downloads\Archive\data.yaml',
-    epochs: int = 300,
+    epochs: int = 350,
     batch_size: int = batch_size,
     weights: str = weights,
     imgsz: int = 640,
@@ -78,8 +78,8 @@ if __name__ == "__main__":
     from ultralytics import YOLO
     
 
-    VIDEO_PATH = r"E:\Downloads\Archive\sample_video.mp4"
-    model = YOLO("./runs/detect/train15/weights/best.pt")
+    # VIDEO_PATH = r"E:\Downloads\Archive\sample_video.mp4"
+    # model = YOLO("./runs/detect/train15/weights/best.pt")
     # model.predict(source=VIDEO_PATH, save=True, imgsz=320, conf=0.5)
     
     # video_info = sv.VideoInfo.from_video_path(VIDEO_PATH)
