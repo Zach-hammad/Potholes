@@ -23,13 +23,14 @@ from tqdm import tqdm
 
 
 
-data_yml_path = r'E:\Downloads\Archive\data.yaml'
-results_path = r'E:\Downloads\Archive\results'
+data_yml_path = r"C:\Users\Bash\OneDrive - Drexel University\Potholes\Archive\severityRated\data.yaml"
+results_path = r"C:\Users\Bash\OneDrive - Drexel University\Potholes\Archive\severityRated\results"
 weights = 'yolo11n.pt' # https://docs.ultralytics.com/models/
 batch_size = 64
 def train_yolo_with_multi_gpu(
-    data_path: str = 'E:\Downloads\Archive\data.yaml',
-    epochs: int = 1000,
+    data_path: str = data_yml_path,
+    # data_path: str = 'E:\Downloads\Archive\data.yaml',
+    epochs: int = 300,
     batch_size: int = batch_size,
     weights: str = weights,
     imgsz: int = 640,
