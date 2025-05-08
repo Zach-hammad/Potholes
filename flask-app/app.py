@@ -140,26 +140,45 @@ def index():
 def dashboard():
     return render_template('dashboard.html')
 
+# ...existing code...
+
 @app.route('/api/potholes', methods=['GET'])
 def get_potholes():
     results = filter_potholes(request.args)
 
     for p in results:
-        # your bucket has: <date-folder>/<base>.json  &  <base>_best.jpg
-        key = f"{p['s3_prefix']}/{p['s3_base']}_best.png"
+        # your bucket has: <date-folder>/<base>.json  &  <base>_best.<ext>
+        prefix = f"{p['s3_prefix']}/{p['s3_base']}_best"
         try:
-            url = svc.generate_presigned_url(
-                ClientMethod='get_object',
-                Params={'Bucket': TIGRIS_BUCKET_NAME, 'Key': key},
-                ExpiresIn=3600
+            # List objects in the bucket to find matching image files
+            response = svc.list_objects_v2(
+                Bucket=TIGRIS_BUCKET_NAME,
+                Prefix=prefix
             )
+            # Find the first matching image file
+            image_key = None
+            for obj in response.get('Contents', []):
+                if obj['Key'].startswith(prefix) and obj['Key'].lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                    image_key = obj['Key']
+                    break
+
+            if image_key:
+                url = svc.generate_presigned_url(
+                    ClientMethod='get_object',
+                    Params={'Bucket': TIGRIS_BUCKET_NAME, 'Key': image_key},
+                    ExpiresIn=3600
+                )
+            else:
+                url = None
         except Exception as e:
-            app.logger.warning(f"Couldn’t presign {key}: {e}")
+            app.logger.warning(f"Couldn’t find or presign image for {prefix}: {e}")
             url = None
 
         p['image_url'] = url
 
     return jsonify(results)
+
+# ...existing code...
 
 @app.route('/export', methods=['GET'])
 def export_data():
