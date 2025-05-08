@@ -140,7 +140,6 @@ def index():
 def dashboard():
     return render_template('dashboard.html')
 
-# ...existing code...
 
 @app.route('/api/potholes', methods=['GET'])
 def get_potholes():
