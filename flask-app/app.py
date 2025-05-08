@@ -25,6 +25,24 @@ svc = boto3.client(
     aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
 )
 
+def delete_s3_directory(bucket: str, prefix: str):
+    paginator = svc.get_paginator('list_objects_v2')
+    to_delete = []
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix + '/'):
+        for obj in page.get('Contents', []):
+            to_delete.append({'Key': obj['Key']})
+
+    if not to_delete:
+        return []
+
+    deleted = []
+    for i in range(0, len(to_delete), 1000):
+        batch = to_delete[i:i+1000]
+        resp = svc.delete_objects(Bucket=bucket, Delete={'Objects': batch})
+        deleted.extend(resp.get('Deleted', []))
+
+    return deleted
+
 # --- Helper: fetch real data from Tigris via boto3 S3 API ---
 # --- Helper: fetch real data from S3, capturing the folder & base name ---
 def fetch_pothole_data_from_s3(bucket_name: str):
@@ -285,6 +303,14 @@ def serve_local_file(file_path):
     except Exception as e:
         app.logger.error(f"Error serving file {file_path}: {e}")
         abort(500, description="Internal server error.")
+
+@app.route('/api/delete_today_directory', methods=['DELETE'])
+def delete_today_directory():
+    today_prefix = datetime.date.today().isoformat()
+    deleted = delete_s3_directory(TIGRIS_BUCKET_NAME, today_prefix)
+    if not deleted:
+        return jsonify({'message': f'No objects found under "{today_prefix}/"'}), 404
+    return jsonify({'deleted': deleted}), 200
 
 # --- Run the app ---
 if __name__ == "__main__":
