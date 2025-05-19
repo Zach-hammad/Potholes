@@ -84,20 +84,20 @@ class S3Service:
                 continue
 
                 # split off the date-folder and base filename
-                prefix, filename = key.rsplit('/', 1)            # e.g. "2025-5-01", "pothole_1746148157.json"
-                base = filename.rsplit('.', 1)[0]    # e.g. "pothole_1746148157"
+            prefix, filename = key.rsplit('/', 1)            # e.g. "2025-5-01", "pothole_1746148157.json"
+            base = filename.rsplit('.', 1)[0]    # e.g. "pothole_1746148157"
 
-                data.append({
-                    "id":          ts,                             # timestamp
-                    "lat":         lat,
-                    "lng":         lon,
-                    "severity" : random.randint(1, 5),
-                    "confidence" : round(random.uniform(0.5, 1.0), 2),
-                    "date":        datetime.date.fromtimestamp(ts).isoformat(),
-                    "description": sidecar.get("description", ""),
-                    "s3_prefix":   prefix,
-                    "s3_base":     base
-                })
+            data.append({
+                "id":          ts,                             # timestamp
+                "lat":         lat,
+                "lng":         lon,
+                "severity" : random.randint(1, 5),
+                "confidence" : round(random.uniform(0.5, 1.0), 2),
+                "date":        datetime.date.fromtimestamp(ts).isoformat(),
+                "description": sidecar.get("description", ""),
+                "s3_prefix":   prefix,
+                "s3_base":     base
+            })
 
         return data
 
@@ -142,7 +142,7 @@ class S3Service:
             if key.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
                 return self.svc.generate_presigned_url(
                     ClientMethod='get_object',
-                    Params={'Bucket': self.bucket, 'Key': image_key},
+                    Params={'Bucket': self.bucket, 'Key': key},
                     ExpiresIn=expires_in
                 )
 
