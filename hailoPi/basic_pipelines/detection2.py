@@ -137,7 +137,14 @@ def save_clip_and_metadata(frames_data):
     # Write metadata
     meta = {
         "timestamp": ts,
+        "captured_at": datetime.datetime.now().isoformat(),
         "gps": {"lat": latest_serial_data['lat'], "lon": latest_serial_data['lon']},
+        "nmea_raw": latest_serial_data['raw'],
+        "confidence": max(frames_data[0]['confidences']),
+        "bboxes": frames_data[0]['bboxes'],
+        "severity": None,
+        "video_name": vid,
+        "s3_key": f"{date_str}/{vid}",
         "frame_count": len(frames_data),
         "duration_s": round(len(frames_data) / 30, 2)
     }
@@ -263,8 +270,8 @@ if __name__ == "__main__":
     print("[DEBUG] Starting application")
     threading.Thread(target=read_serial, daemon=True).start()
     print("[DEBUG] Serial reader started")
-    upload_calibration_frame()
-    print("[DEBUG] Calibration uploader initialized")
+    #upload_calibration_frame()
+    #print("[DEBUG] Calibration uploader initialized")
     app = GStreamerDetectionApp(app_callback, app_callback_class())
 #    flip = Gst.ElementFactory.make("videoflip", "flip")
 #    app.add(flip)
