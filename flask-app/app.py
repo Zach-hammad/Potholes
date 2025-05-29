@@ -7,9 +7,15 @@ from services.s3_service import S3Service
 from services.data_loader import load_pothole_data
 from routes import api, dashboard, export
 
+from flask_caching import Cache
+
 def create_app():
     app = Flask(__name__)
+    app.config['CACHE_TYPE'] = 'SimpleCache'
+    app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes
 
+    cache = Cache(app)        # ⇦ add this
+    
     app.s3 = S3Service(
         bucket_name=BUCKET_NAME,
         endpoint_url=S3_URL,
