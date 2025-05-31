@@ -12,6 +12,8 @@ from collections import deque
 from gi.repository import Gst, GLib
 import boto3
 import gps
+import dataCapture
+from loguru import logger
 
 from hailo_apps_infra.hailo_rpi_common import (
     get_caps_from_pad,
@@ -51,117 +53,6 @@ DETECTION_TIMEOUT = 3
 OUTPUT_BASE_DIR = "cached_clips"
 os.makedirs(OUTPUT_BASE_DIR, exist_ok=True)
 
-
-# --------------------------------------------
-# Save Clip, Best Frames & Metadata
-# --------------------------------------------
-def save_clip_and_metadata(frames_data):
-    print("[DEBUG] save_clip_and_metadata() triggered")
-    if not frames_data:
-        print("[WARN] No frames to save, aborting")
-        return
-
-    date_str = datetime.date.today().isoformat()
-    out_dir = os.path.join(OUTPUT_BASE_DIR, date_str)
-    os.makedirs(out_dir, exist_ok=True)
-    ts = int(time.time())
-
-    vid = f"pothole_{ts}.avi"
-    meta_fn = f"pothole_{ts}.json"
-    best_clean = f"pothole_{ts}_best_clean.png"
-    best_ann = f"pothole_{ts}_best.png"
-
-    # Write video (annotated)
-    h, w, _ = frames_data[0]['annotated_frame'].shape
-    print(f"[INFO] Writing video {vid}")
-    writer = cv2.VideoWriter(
-        os.path.join(out_dir, vid),
-        cv2.VideoWriter_fourcc(*'XVID'),
-        30,
-        (w, h)
-    )
-    if not writer.isOpened():
-        print(f"[ERROR] VideoWriter failed for {vid}")
-        return
-    for e in frames_data:
-        writer.write(e['annotated_frame'])
-    writer.release()
-    print(f"[INFO] Saved video: {vid}")
-
-    # Select best frame by center proximity
-    bi, bd = None, float('inf')
-    for i, e in enumerate(frames_data):
-        for yc in e['y_centers']:
-            d = abs(yc - 0.5)
-            if d < bd:
-                bd, bi = d, i
-
-    if bi is not None:
-        print(f"[DEBUG] Best frame index: {bi}")
-        # Save un-annotated “clean” best frame
-        clean_path = os.path.join(out_dir, best_clean)
-        cv2.imwrite(clean_path, frames_data[bi]['clean_frame'])
-        print(f"[INFO] Saved clean best frame: {best_clean}")
-
-        # Save annotated best frame
-        ann_path = os.path.join(out_dir, best_ann)
-        cv2.imwrite(ann_path, frames_data[bi]['annotated_frame'])
-        print(f"[INFO] Saved annotated best frame: {best_ann}")
-
-    # Write metadata
-    meta = {
-        "timestamp": ts,
-        "captured_at": datetime.datetime.now().isoformat(),
-        "gps": {"lat": latest_serial_data['lat'], "lon": latest_serial_data['lon']},
-        "nmea_raw": latest_serial_data['raw'],
-        "confidence": max(frames_data[0]['confidences']),
-        "bboxes": frames_data[0]['bboxes'],
-        "severity": None,
-        "video_name": vid,
-        "s3_key": f"{date_str}/{vid}",
-        "frame_count": len(frames_data),
-        "duration_s": round(len(frames_data) / 30, 2)
-    }
-    meta_path = os.path.join(out_dir, meta_fn)
-    with open(meta_path, 'w') as f:
-        json.dump(meta, f, indent=2)
-    print(f"[INFO] Saved metadata: {meta_fn}")
-
-    # Upload files to S3
-    for fn in (vid, meta_fn, best_clean, best_ann):
-        lp = os.path.join(out_dir, fn)
-        key = f"{date_str}/{fn}"
-        try:
-            s3_client.upload_file(lp, TIGRIS_BUCKET_NAME, key)
-            print(f"[INFO] Uploaded {fn} to S3://{TIGRIS_BUCKET_NAME}/{key}")
-        except Exception as e:
-            print(f"[ERROR] Failed upload {fn}: {e}")
-
-# --------------------------------------------
-# Periodic Calibration Upload
-# --------------------------------------------
-def upload_calibration_frame():
-    global latest_frame
-    # schedule next run
-    threading.Timer(1.0, upload_calibration_frame).start()
-
-    if latest_frame is None:
-        return  # no prints if nothing to upload
-
-    # save and upload calibration frame
-    ds = datetime.date.today().isoformat()
-    cd = os.path.join(OUTPUT_BASE_DIR, ds, 'calibration')
-    os.makedirs(cd, exist_ok=True)
-    fn = f"calib_{int(time.time())}.png"
-    path = os.path.join(cd, fn)
-    cv2.imwrite(path, latest_frame)
-
-    key = f"{ds}/calibration/{fn}"
-    try:
-        s3_client.upload_file(path, TIGRIS_BUCKET_NAME, key)
-        print(f"[CALIB] Uploaded calibration frame: {fn} to S3://{TIGRIS_BUCKET_NAME}/{key}")
-    except Exception as e:
-        print(f"[CALIB] Upload failed for {fn}: {e}")
 
 # --------------------------------------------
 # GStreamer Callback
@@ -218,7 +109,7 @@ def app_callback(pad, info, user_data):
         if not RECORDING:
             RECORDING = True
             FRAME_BUFFER.clear()
-            print("[INFO] Recording started")
+            logger.info("[INFO] Recording started")
         FRAME_BUFFER.append({
             'clean_frame': raw,
             'annotated_frame': ann,
@@ -228,12 +119,17 @@ def app_callback(pad, info, user_data):
         })
     elif RECORDING and (now - LAST_DETECTION_TIME > DETECTION_TIMEOUT):
         RECORDING = False
-        print("[INFO] Detection ended, saving clip")
+        logger.info("[INFO] Detection ended, saving clip")
         threading.Thread(
-            target=save_clip_and_metadata,
-            args=(list(FRAME_BUFFER),),
+            target=dataCapture.save_clip_and_metadata,
+            args=(list(FRAME_BUFFER),
+                  s3_client,
+                  OUTPUT_BASE_DIR,
+                  TIGRIS_BUCKET_NAME,
+                  latest_serial_data),
             daemon=True
         ).start()
+
 
     return Gst.PadProbeReturn.OK
 
@@ -241,9 +137,9 @@ def app_callback(pad, info, user_data):
 # Main Entry
 # --------------------------------------------
 if __name__ == "__main__":
-    print("[DEBUG] Starting application")
+    logger.debug("[DEBUG] Starting application")
     threading.Thread(target=gps.read_serial,args=(latest_serial_data,), daemon=True).start()
-    print("[DEBUG] Serial reader started")
+    logger.debug("[DEBUG] Serial reader started")
     #upload_calibration_frame()
     #print("[DEBUG] Calibration uploader initialized")
     app = GStreamerDetectionApp(app_callback, app_callback_class())

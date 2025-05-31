@@ -1,13 +1,13 @@
 import serial
 import time
-
+from loguru import logger
 # Open UART port
 # --------------------------------------------
 # Serial Reader Thread
 # --------------------------------------------
 def read_serial():
     global latest_serial_data
-    print("[DEBUG] Serial reader thread starting")
+    logger.debug("[DEBUG] Serial reader thread starting")
     try:
         ser = serial.Serial("/dev/serial0", 9600, timeout=1)
         while True:
@@ -28,4 +28,4 @@ def read_serial():
                     if parts[5] == 'W': lon = -lon
                     latest_serial_data.update({"lat": lat, "lon": lon})
     except Exception as e:
-        print(f"[ERROR] Serial thread error: {e}")
+        logger.error(f"[ERROR] Serial thread error: {e}")
