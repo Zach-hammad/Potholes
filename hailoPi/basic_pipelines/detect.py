@@ -242,7 +242,7 @@ def app_callback(pad, info, user_data):
 # --------------------------------------------
 if __name__ == "__main__":
     print("[DEBUG] Starting application")
-    threading.Thread(target=read_serial, daemon=True).start()
+    threading.Thread(target=gps.read_serial,args=(latest_serial_data,), daemon=True).start()
     print("[DEBUG] Serial reader started")
     #upload_calibration_frame()
     #print("[DEBUG] Calibration uploader initialized")
