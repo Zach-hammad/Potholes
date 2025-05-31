@@ -140,16 +140,5 @@ if __name__ == "__main__":
     logger.debug("[DEBUG] Starting application")
     threading.Thread(target=gps.read_serial,args=(latest_serial_data,), daemon=True).start()
     logger.debug("[DEBUG] Serial reader started")
-    #upload_calibration_frame()
-    #print("[DEBUG] Calibration uploader initialized")
     app = GStreamerDetectionApp(app_callback, app_callback_class())
-#    flip = Gst.ElementFactory.make("videoflip", "flip")
-#    app.add(flip)
-
-#    app.pipeline_description = app.pipeline_description.replace(
-#        'videoconvert',
- #       'videoflip method=clockwise ! videoconvert'
- #   )
- #   print("[DEBUG] Launching GStreamerDetectionApp")
-
     app.run()
