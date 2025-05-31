@@ -5,8 +5,7 @@ from loguru import logger
 # --------------------------------------------
 # Serial Reader Thread
 # --------------------------------------------
-def read_serial():
-    global latest_serial_data
+def read_serial(latest_serial_data):
     logger.debug("[DEBUG] Serial reader thread starting")
     try:
         ser = serial.Serial("/dev/serial0", 9600, timeout=1)
