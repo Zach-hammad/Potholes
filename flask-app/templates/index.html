@@ -2,19 +2,94 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+    <!-- at top of index.html -->
+    <a href="{{ url_for('dashboard.dashboard') }}">Go to Pothole Map Dashboard →</a>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <title>Upload Potholes</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 2rem; }
+      input, button { margin: 0.5rem 0; display: block; }
+      #log { margin-top: 1rem; white-space: pre-wrap; background: #f8f8f8; padding: 1rem; border: 1px solid #ddd; height: 200px; overflow-y: auto; }
+    </style>
   </head>
   <body>
     <main>
-      <div>  
-      <h1>Potholes Here</h1>  
-        <input type="file" id="fileInput" multiple>
-        <button onclick="uploadFiles()">Upload</button>
+      <h1>Upload Pothole Images</h1>
+      <div>
+        <input type="file" id="fileInput" multiple />
+        <button id="uploadBtn">Upload Files</button>
       </div>
-      <p></p>
-        <input type="text" id="kaggleUrl" multiple>
-        <button onclick="uploadDataset()">Upload Dataset</button>
+      <h2>Or Pull from Kaggle</h2>
+      <div>
+        <input type="text" id="kaggleUrl" placeholder="Kaggle dataset URL (e.g. owner/dataset-name)" />
+        <button id="uploadDatasetBtn">Upload Kaggle Dataset</button>
+      </div>
+      <div id="log"></div>
     </main>
-    <script src="{{ url_for('static', filename='index.js') }}"></script>
+
+    <script>
+      const logEl = document.getElementById('log');
+      function log(msg) {
+        console.log(msg);
+        logEl.textContent += msg + '\n';
+      }
+
+      document.getElementById('uploadBtn').addEventListener('click', uploadFiles);
+      document.getElementById('uploadDatasetBtn').addEventListener('click', uploadDataset);
+
+      async function uploadFiles() {
+        const files = document.getElementById('fileInput').files;
+        if (!files.length) { alert('Please select one or more files.'); return; }
+        for (const file of files) {
+          const fileName = file.name;
+          const fileType = file.type;
+          log(`Requesting presigned URL for ${fileName}...`);
+          try {
+            const res = await fetch('/generate_presigned_url', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ file_name: fileName, file_type: fileType })
+            });
+            const payload = await res.json();
+            if (payload.error) { throw new Error(payload.error); }
+            const { url, fields } = payload.data;
+            const formData = new FormData();
+            Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
+            formData.append('file', file);
+
+            log(`Uploading ${fileName} to Tigris S3...`);
+            const uploadRes = await fetch(url, { method: 'POST', body: formData });
+            if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`);
+            log(`✅ ${fileName} uploaded successfully.`);
+          } catch (err) {
+            log(`❌ Error uploading ${fileName}: ${err.message}`);
+          }
+        }
+        log('All files processed.');
+      }
+
+      async function uploadDataset() {
+        const datasetUrl = document.getElementById('kaggleUrl').value.trim();
+        if (!datasetUrl) { alert('Please enter a Kaggle dataset URL.'); return; }
+        log(`Pulling dataset ${datasetUrl} from Kaggle and requesting uploads...`);
+        try {
+          const res = await fetch('/generate_presigned_url', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ dataset_url: datasetUrl })
+          });
+          const payload = await res.json();
+          if (payload.error) { throw new Error(payload.error); }
+          const results = payload.results;
+          log(`Received ${results.length} presigned entries.`);
+          results.forEach(r => log(`• ${r.file_name} => ${r.url}`));
+          log('✅ Kaggle dataset presigned URLs generated.');
+        } catch (err) {
+          log(`❌ Error: ${err.message}`);
+        }
+      }
+    </script>
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
   </body>
 </html>

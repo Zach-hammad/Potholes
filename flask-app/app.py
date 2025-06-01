@@ -1,122 +1,37 @@
-from flask import *
-import boto3
+# app.py
+
+from flask import Flask
 import os
-from werkzeug.utils import secure_filename
-import kaggle_to_tigris
-import glob
-import mimetypes
+from config import BUCKET_NAME, S3_URL, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+from services.s3_service import S3Service
+from services.data_loader import load_pothole_data
+from routes import api, dashboard, export
 
+from flask_caching import Cache
 
-app = Flask(__name__)
+def create_app():
+    app = Flask(__name__)
+    app.config['CACHE_TYPE'] = 'SimpleCache'
+    app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes
 
-S3_URL = "https://fly.storage.tigris.dev/"
-TIGRIS_BUCKET_NAME = 'pothole-images'
-svc = boto3.client(
-    's3',
-    endpoint_url=S3_URL,
-    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
-)
+    cache = Cache(app)        # ⇦ add this
+    
+    app.s3 = S3Service(
+        bucket_name=BUCKET_NAME,
+        endpoint_url=S3_URL,
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+    )
 
-@app.route('/', methods=['GET'])
-def index():
-    return render_template('index.html')
+    app.pothole_data = load_pothole_data(app)
 
-@app.route('/generate_presigned_url', methods=['POST'])
-def generate_presigned_url():
-    if not request.json.get('dataset_url'):            
-        file_name = request.json.get('file_name')
-        file_type = request.json.get('file_type')
+    app.register_blueprint(dashboard.bp)
+    app.register_blueprint(api.bp)
+    app.register_blueprint(export.bp)
 
-        try:
-            presigned_post = svc.generate_presigned_post(
-                Bucket=TIGRIS_BUCKET_NAME,
-                Key=file_name,
-                Fields={"Content-Type": file_type},
-                Conditions=[
-                    {"Content-Type": file_type}
-                ],
-            )
-            print(presigned_post)
+    return app
 
-            return jsonify({'data': presigned_post})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-    else:
-        dataset_url = request.json.get('dataset_url')
-        kaggle_api = kaggle_to_tigris.kaggle_auth()
-        dataset = kaggle_to_tigris.pull_images_from_dataset(kaggle_api, dataset_url)
-        dataset_files = glob.glob(f"{dataset}/**/*.*", recursive=True)
-        
-        presigned_urls = []
-        for file_path in dataset_files:
-            file_name = os.path.basename(file_path) 
-            content_type = file_type = mimetypes.guess_type(file_name)[0] 
-            presigned_post = svc.generate_presigned_post(
-                Bucket=TIGRIS_BUCKET_NAME,
-                Key=f"{dataset}/{file_name}",
-                Fields={"Content-Type": content_type},
-                Conditions=[{"Content-Type": content_type}],
-            )
-            print(presigned_post)
-            presigned_urls.append({
-                "file_name": file_name,
-                "file_path": file_path.replace("/", "\\"),
-                "url": presigned_post["url"],
-                "fields": presigned_post["fields"]
-            })
-
-        return jsonify({'results': presigned_urls})
-        
-
-@app.get("/list_buckets")
-def list_buckets():
-    try:
-        # List all buckets
-        buckets = svc.list_buckets()
-        bucket_names = [bucket["Name"] for bucket in buckets.get("Buckets", [])]
-
-        # Dictionary to hold objects in each bucket
-        buckets_with_objects = {}
-
-        # Iterate over each bucket and list objects
-        for bucket_name in bucket_names:
-            try:
-                response = svc.list_objects_v2(Bucket=bucket_name)
-                # Check if the bucket contains any objects
-                if 'Contents' in response:
-                    objects = [obj['Key'] for obj in response['Contents']]
-                else:
-                    objects = []
-                buckets_with_objects[bucket_name] = objects
-            except Exception as e:
-                app.logger.error(f"Error listing objects in bucket {bucket_name}: {e}")
-                buckets_with_objects[bucket_name] = f"Error: {str(e)}"
-
-        return jsonify({"buckets": buckets_with_objects})
-    except Exception as e:
-        app.logger.error(f"Error listing buckets: {e}")
-        return jsonify({"error": "Internal server error"}), 500
-
-
-@app.route('/local-files/<path:file_path>', methods=['GET', 'DELETE'])
-def serve_local_file(file_path):
-    """
-    Serve files from the local temporary directory, allowing nested paths.
-    """
-    # Construct the full path to the requested file
-    try:
-    # Check if the file exists and is within the TEMP_DIR
-        if os.path.isfile(file_path):
-            if request.method != 'GET':
-                os.remove(file_path)
-                print(f"REMOVE FILE {file_path} OK")
-                return jsonify({})
-            return send_file(file_path)
-        else:
-            abort(404, description="File not found or access is not allowed.")
-    except Exception as e:
-        app.logger.error(f"Error serving file {file_path}: {e}")
-        abort(500, description="Internal server error.")
+app = create_app()
+# --- Run the app ---
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8501)
+    app.run(host="0.0.0.0", port=8501, debug=True)
