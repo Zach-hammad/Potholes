@@ -83,7 +83,7 @@ def save_clip_and_metadata(frames_data, s3_client, OUTPUT_BASE_DIR, TIGRIS_BUCKE
     for fn in (vid, meta_fn, best_clean, best_ann):
         lp = os.path.join(out_dir, fn)
         key = f"{date_str}/{fn}"
-        upload(lp, s3_client, TIGRIS_BUCKET_NAME, key)
+        upload(lp, fn, s3_client, TIGRIS_BUCKET_NAME, key)
 
 
 
