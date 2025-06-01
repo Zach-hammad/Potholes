@@ -1,51 +1,37 @@
-from flask import *
-import boto3
+# app.py
+
+from flask import Flask
 import os
-from werkzeug.utils import secure_filename
+from config import BUCKET_NAME, S3_URL, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+from services.s3_service import S3Service
+from services.data_loader import load_pothole_data
+from routes import api, dashboard, export
 
+from flask_caching import Cache
 
-app = Flask(__name__)
+def create_app():
+    app = Flask(__name__)
+    app.config['CACHE_TYPE'] = 'SimpleCache'
+    app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes
 
-S3_URL = "https://fly.storage.tigris.dev/"
-TIGRIS_BUCKET_NAME = 'solitary-sun-9532'
-svc = boto3.client(
-    's3',
-    endpoint_url=S3_URL,
-    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
-)
-
-@app.route('/', methods=['GET'])
-def index():
-    return render_template('index.html')
-
-@app.route('/generate_presigned_url', methods=['POST'])
-def generate_presigned_url():
-    file_name = request.json.get('file_name')
-    file_type = request.json.get('file_type')
-
-    try:
-        presigned_post = svc.generate_presigned_post(
-            Bucket=TIGRIS_BUCKET_NAME,
-            Key=file_name,
-            Fields={"Content-Type": file_type},
-            Conditions=[
-                {"Content-Type": file_type}
-            ],
-        )
-        return jsonify({'data': presigned_post})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.get("/list_buckets")
-def list_buckets():
-    try:
-        buckets = svc.list_buckets()
-        bucket_names = [bucket["Name"] for bucket in buckets.get("Buckets", [])]
-        return jsonify({"buckets": bucket_names})
-    except Exception as e:
-        app.logger.error(f"Error listing buckets: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+    cache = Cache(app)        # ⇦ add this
     
+    app.s3 = S3Service(
+        bucket_name=BUCKET_NAME,
+        endpoint_url=S3_URL,
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+    )
+
+    app.pothole_data = load_pothole_data(app)
+
+    app.register_blueprint(dashboard.bp)
+    app.register_blueprint(api.bp)
+    app.register_blueprint(export.bp)
+
+    return app
+
+app = create_app()
+# --- Run the app ---
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8501)
+    app.run(host="0.0.0.0", port=8501, debug=True)

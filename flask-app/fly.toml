@@ -6,6 +6,11 @@
 app = 'potholes'
 primary_region = 'ewr'
 
+[env]
+  AWS_ENDPOINT_URL_S3="https://t3.storage.dev"
+  AWS_ENDPOINT_URL_IAM="https://fly.iam.storage.tigris.dev"
+  AWS_REGION="auto"
+
 [http_service]
   internal_port = 8501
   force_https = true
