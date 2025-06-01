@@ -1,0 +1,9 @@
+{
+    "detection_threshold": 0.6,
+    "max_boxes":1,
+    "labels": [
+      "pothole"
+    ]
+}
+
+
