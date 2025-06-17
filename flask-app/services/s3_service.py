@@ -61,7 +61,7 @@ class S3Service:
             resp    = self.svc.get_object(Bucket=self.bucket, Key=key)
             return json.loads(resp['Body'].read())
         except (ClientError, BotoCoreError,  ValueError) as e:
-            app.logger.warning(f"Skipping {key}: {e}")
+            logger.warning(f"Skipping {key}: {e}")
             return None
 
     def fetch_pothole_data(self) -> List[Dict]:
@@ -129,7 +129,7 @@ class S3Service:
         deleted = []
         for i in range(0, len(to_delete), 1000):
             batch = to_delete[i:i+1000]
-            resp = self.svc.delete_objects(Bucket=bucket, Delete={'Objects': batch})
+            resp = self.svc.delete_objects(Bucket=self.bucket, Delete={'Objects': batch})
             deleted.extend(resp.get('Deleted', []))
 
         return deleted

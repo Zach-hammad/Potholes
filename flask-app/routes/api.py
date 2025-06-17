@@ -83,7 +83,7 @@ def generate_presigned_url():
                 "fields": presigned_post['fields']
             })
         except Exception:
-            current_app.logger.warning(f"Skipping presign for {name}")
+            current_app.logger.warning(f"Skipping presign for {file_name}")
     return jsonify({'results': presigned_urls})
 
 @bp.route('/list_buckets', methods=['GET'])

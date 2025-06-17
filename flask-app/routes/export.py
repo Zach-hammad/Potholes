@@ -37,7 +37,7 @@ def export_data():
     writer.writeheader()
     writer.writerows(data)
 
-    output = io.BytesIO(si.getvalues().encode())
+    output = io.BytesIO(si.getvalue().encode())
     return send_file(
         output,
         mimetype='text/csv',
