@@ -5,3 +5,4 @@ kaggle.json
 */**/*.avi
 */**/args.yaml
 /runs/train
+/config.py
