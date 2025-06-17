@@ -32,7 +32,7 @@ def delete_today_directory():
     Delete all objects under today's date in S3, and return the list of deleted keys.
     """
     today_prefix = datetime.date.today().isoformat()
-    deleted = current_app.delete_s3_directory(today_prefix)
+    deleted = current_app.s3.delete_s3_directory(today_prefix)
     if not deleted:
         return jsonify({'message': f'No objects found under "{today_prefix}/"'}), 404
     return jsonify({'deleted': deleted}), 200
