@@ -6,3 +6,4 @@ kaggle.json
 */**/args.yaml
 /runs/train
 /config.py
+venv/
