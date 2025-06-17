@@ -113,7 +113,7 @@ class S3Service:
             ExpiresIn=expires_in,
         )
 
-    def delete_s3_directory(prefix: str):
+    def delete_s3_directory(self, prefix: str):
         """
         Delete all objects under a prefix. Returns list of deleted metadata.
         """

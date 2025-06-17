@@ -8,7 +8,7 @@ bp = Blueprint('export', __name__, url_prefix = "/api")
 def export_data():
     fmt = request.args.get('format', 'csv')
     try:
-        data = filter_potholes(request.args, current_app.pothole_data)
+        data = services.filter.filter_potholes(request.args, current_app.pothole_data)
     except Exception as e:
         current_app.logger.error(f"Error filtering potholes: {e}")
         abort(400, "Invalid filter parameters")
